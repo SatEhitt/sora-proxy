@@ -4,7 +4,6 @@ const http = require('http');
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -15,7 +14,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Health check
   if (req.url === '/' || req.url === '/health') {
     res.writeHead(200);
     res.end(JSON.stringify({ status: 'ok', proxy: 'sora-proxy' }));
@@ -30,45 +28,4 @@ const server = http.createServer((req, res) => {
 
   const chunks = [];
   req.on('data', chunk => chunks.push(chunk));
-  req.on('end', () => {
-    const body = Buffer.concat(chunks);
-
-    const headers = {};
-    // Forward only safe headers
-    if (req.headers['authorization']) headers['authorization'] = req.headers['authorization'];
-    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
-    if (body.length > 0) headers['content-length'] = body.length;
-    headers['host'] = 'api.openai.com';
-
-    const options = {
-      hostname: 'api.openai.com',
-      port: 443,
-      path: req.url,
-      method: req.method,
-      headers
-    };
-
-    console.log(`→ ${req.method} ${req.url} (${body.length} bytes)`);
-
-    const proxyReq = https.request(options, proxyRes => {
-      console.log(`← ${proxyRes.statusCode} ${req.url}`);
-      const resHeaders = {
-        'Access-Control-Allow-Origin': '*',
-        'content-type': proxyRes.headers['content-type'] || 'application/json'
-      };
-      res.writeHead(proxyRes.statusCode, resHeaders);
-      proxyRes.pipe(res);
-    });
-
-    proxyReq.on('error', err => {
-      console.error('Proxy error:', err.message);
-      res.writeHead(502);
-      res.end(JSON.stringify({ error: err.message }));
-    });
-
-    if (body.length > 0) proxyReq.write(body);
-    proxyReq.end();
-  });
-});
-
-server.listen(PORT, () => console.log(`Sora proxy running on port ${PORT}`));
+  re
