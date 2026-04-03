@@ -2,12 +2,12 @@ const https = require('https');
 const http = require('http');
 
 const PORT = process.env.PORT || 3000;
-const OPENAI_HOST = 'api.openai.com';
 
 const server = http.createServer((req, res) => {
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, multipart/form-data');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -15,9 +15,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (!req.url.startsWith('/v1/videos') && !req.url.startsWith('/v1/video')) {
+  // Health check
+  if (req.url === '/' || req.url === '/health') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ status: 'ok', proxy: 'sora-proxy' }));
+    return;
+  }
+
+  if (!req.url.startsWith('/v1/')) {
     res.writeHead(404);
-    res.end(JSON.stringify({ error: 'Not found' }));
+    res.end(JSON.stringify({ error: 'Only /v1/ paths are proxied' }));
     return;
   }
 
@@ -26,23 +33,35 @@ const server = http.createServer((req, res) => {
   req.on('end', () => {
     const body = Buffer.concat(chunks);
 
+    const headers = {};
+    // Forward only safe headers
+    if (req.headers['authorization']) headers['authorization'] = req.headers['authorization'];
+    if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
+    if (body.length > 0) headers['content-length'] = body.length;
+    headers['host'] = 'api.openai.com';
+
     const options = {
-      hostname: OPENAI_HOST,
+      hostname: 'api.openai.com',
       port: 443,
       path: req.url,
       method: req.method,
-      headers: { ...req.headers, host: OPENAI_HOST }
+      headers
     };
 
-    delete options.headers['content-length'];
-    if (body.length > 0) options.headers['content-length'] = body.length;
+    console.log(`→ ${req.method} ${req.url} (${body.length} bytes)`);
 
     const proxyReq = https.request(options, proxyRes => {
-      res.writeHead(proxyRes.statusCode, proxyRes.headers);
+      console.log(`← ${proxyRes.statusCode} ${req.url}`);
+      const resHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'content-type': proxyRes.headers['content-type'] || 'application/json'
+      };
+      res.writeHead(proxyRes.statusCode, resHeaders);
       proxyRes.pipe(res);
     });
 
     proxyReq.on('error', err => {
+      console.error('Proxy error:', err.message);
       res.writeHead(502);
       res.end(JSON.stringify({ error: err.message }));
     });
