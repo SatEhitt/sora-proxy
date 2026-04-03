@@ -5,10 +5,9 @@ const PORT = process.env.PORT || 3000;
 const OPENAI_HOST = 'api.openai.com';
 
 const server = http.createServer((req, res) => {
-  // CORS headers — allow any origin
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, multipart/form-data');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -16,14 +15,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Only proxy /v1/video/generations paths
-  if (!req.url.startsWith('/v1/video/')) {
+  if (!req.url.startsWith('/v1/videos') && !req.url.startsWith('/v1/video')) {
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'Not found' }));
     return;
   }
 
-  // Collect request body
   const chunks = [];
   req.on('data', chunk => chunks.push(chunk));
   req.on('end', () => {
@@ -34,17 +31,11 @@ const server = http.createServer((req, res) => {
       port: 443,
       path: req.url,
       method: req.method,
-      headers: {
-        ...req.headers,
-        host: OPENAI_HOST,
-      }
+      headers: { ...req.headers, host: OPENAI_HOST }
     };
 
-    // Remove headers that cause issues
     delete options.headers['content-length'];
-    if (body.length > 0) {
-      options.headers['content-length'] = body.length;
-    }
+    if (body.length > 0) options.headers['content-length'] = body.length;
 
     const proxyReq = https.request(options, proxyRes => {
       res.writeHead(proxyRes.statusCode, proxyRes.headers);
@@ -61,6 +52,4 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Sora proxy running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Sora proxy running on port ${PORT}`));
