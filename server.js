@@ -9,7 +9,7 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.url === '/' || req.url === '/health') {
-    res.writeHead(200); res.end(JSON.stringify({ status: 'ok', routes: ['/v1/', '/replicate/', '/api/anthropic'] })); return;
+    res.writeHead(200); res.end(JSON.stringify({ status: 'ok' })); return;
   }
 
   let target, path = req.url;
@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
     target = 'api.anthropic.com';
     path = '/v1/messages';
   } else {
-    res.writeHead(404); res.end(JSON.stringify({ error: 'Unknown route. Use /v1/, /replicate/, or /api/anthropic' })); return;
+    res.writeHead(404); res.end(JSON.stringify({ error: 'Unknown route' })); return;
   }
 
   const chunks = [];
@@ -36,22 +36,13 @@ const server = http.createServer((req, res) => {
     });
     if (body.length > 0) headers['content-length'] = body.length;
     headers['host'] = target;
-
     const opts = { hostname: target, port: 443, path, method: req.method, headers };
-    console.log(`â†’ ${req.method} ${target}${path} (${body.length}b)`);
-
     const pr = https.request(opts, pres => {
-      const rh = Object.assign({}, pres.headers, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Expose-Headers': '*'
-      });
+      const rh = Object.assign({}, pres.headers, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': '*' });
       res.writeHead(pres.statusCode, rh);
       pres.pipe(res);
     });
-    pr.on('error', err => {
-      console.error('Proxy error:', err.message);
-      res.writeHead(502); res.end(JSON.stringify({ error: err.message }));
-    });
+    pr.on('error', err => { res.writeHead(502); res.end(JSON.stringify({ error: err.message })); });
     if (body.length > 0) pr.write(body);
     pr.end();
   });
