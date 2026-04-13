@@ -38,7 +38,7 @@ const server = http.createServer((req, res) => {
     headers['host'] = target;
 
     const opts = { hostname: target, port: 443, path, method: req.method, headers };
-    console.log(`→ ${req.method} ${target}${path} (${body.length}b)`);
+    console.log(`â†’ ${req.method} ${target}${path} (${body.length}b)`);
 
     const pr = https.request(opts, pres => {
       const rh = Object.assign({}, pres.headers, {
