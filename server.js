@@ -6,15 +6,18 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
-
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
-  if (req.url === '/' || req.url === '/health') {
-    res.writeHead(200); res.end(JSON.stringify({ status: 'ok' })); return;
-  }
+  if (req.url === '/' || req.url === '/health') { res.writeHead(200); res.end('{"status":"ok"}'); return; }
 
   let target, path = req.url;
 
-  if (req.url.startsWith('/replicate/')) {
+  if (req.url.startsWith('/fal-storage/')) {
+    target = 'rest.alpha.fal.ai';
+    path = '/storage' + req.url.replace('/fal-storage', '');
+  } else if (req.url.startsWith('/fal/')) {
+    target = 'queue.fal.run';
+    path = req.url.replace('/fal', '');
+  } else if (req.url.startsWith('/replicate/')) {
     target = 'api.replicate.com';
     path = req.url.replace('/replicate', '');
   } else if (req.url.startsWith('/v1/')) {
@@ -23,7 +26,7 @@ const server = http.createServer((req, res) => {
     target = 'api.anthropic.com';
     path = '/v1/messages';
   } else {
-    res.writeHead(404); res.end(JSON.stringify({ error: 'Unknown route' })); return;
+    res.writeHead(404); res.end('{"error":"unknown route"}'); return;
   }
 
   const chunks = [];
@@ -31,12 +34,13 @@ const server = http.createServer((req, res) => {
   req.on('end', () => {
     const body = Buffer.concat(chunks);
     const headers = {};
-    ['authorization','content-type','x-api-key','anthropic-version','prefer'].forEach(h => {
+    ['authorization','content-type','x-api-key','anthropic-version','prefer','content-length'].forEach(h => {
       if (req.headers[h]) headers[h] = req.headers[h];
     });
     if (body.length > 0) headers['content-length'] = body.length;
     headers['host'] = target;
     const opts = { hostname: target, port: 443, path, method: req.method, headers };
+    console.log(`→ ${req.method} ${target}${path} (${body.length}b)`);
     const pr = https.request(opts, pres => {
       const rh = Object.assign({}, pres.headers, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': '*' });
       res.writeHead(pres.statusCode, rh);
@@ -47,5 +51,3 @@ const server = http.createServer((req, res) => {
     pr.end();
   });
 });
-
-server.listen(PORT, () => console.log(`Proxy running on port ${PORT}`));
