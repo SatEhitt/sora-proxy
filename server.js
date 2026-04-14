@@ -34,7 +34,7 @@ const server = http.createServer((req, res) => {
   req.on('end', () => {
     const body = Buffer.concat(chunks);
     const headers = {};
-    ['authorization','content-type','x-api-key','anthropic-version','prefer','content-length'].forEach(h => {
+    ['authorization','content-type','x-api-key','anthropic-version','prefer'].forEach(h => {
       if (req.headers[h]) headers[h] = req.headers[h];
     });
     if (body.length > 0) headers['content-length'] = body.length;
@@ -51,3 +51,5 @@ const server = http.createServer((req, res) => {
     pr.end();
   });
 });
+
+server.listen(PORT, () => console.log(`Proxy on port ${PORT}`));
