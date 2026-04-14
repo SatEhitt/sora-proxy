@@ -1,16 +1,16 @@
 const https = require('https');
 const http = require('http');
 const PORT = process.env.PORT || 3000;
-
+ 
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   if (req.url === '/' || req.url === '/health') { res.writeHead(200); res.end('{"status":"ok"}'); return; }
-
+ 
   let target, path = req.url;
-
+ 
   if (req.url.startsWith('/fal-storage/')) {
     target = 'rest.alpha.fal.ai';
     path = '/storage' + req.url.replace('/fal-storage', '');
@@ -28,13 +28,13 @@ const server = http.createServer((req, res) => {
   } else {
     res.writeHead(404); res.end('{"error":"unknown route"}'); return;
   }
-
+ 
   const chunks = [];
   req.on('data', c => chunks.push(c));
   req.on('end', () => {
     const body = Buffer.concat(chunks);
     const headers = {};
-    ['authorization','content-type','x-api-key','anthropic-version','prefer'].forEach(h => {
+    ['authorization','content-type','x-api-key','anthropic-version','prefer','content-length'].forEach(h => {
       if (req.headers[h]) headers[h] = req.headers[h];
     });
     if (body.length > 0) headers['content-length'] = body.length;
@@ -51,5 +51,5 @@ const server = http.createServer((req, res) => {
     pr.end();
   });
 });
-
+ 
 server.listen(PORT, () => console.log(`Proxy on port ${PORT}`));
